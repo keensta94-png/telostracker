@@ -3,9 +3,12 @@
   "description": "Telos mechanic rotation and auto-attack tracker for RuneScape 3.",
   "icon": "icon.png",
   "appUrl": "index.html",
-  "configUrl": "appconfig.json",
   "width": 390,
   "height": 620,
-  "permissions": ["pixel", "gamestate", "overlay"],
+  "permissions": [
+    "pixel",
+    "gamestate",
+    "overlay"
+  ],
   "version": "0.1.0"
 }
