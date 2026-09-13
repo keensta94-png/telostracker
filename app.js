@@ -1,10 +1,8 @@
 import {
   LABELS,
-  CYCLE,
   getEntry,
   getNext,
-  getTicksAfter,
-  CHAT_PATTERNS
+  getTicksAfter
 } from './mechanics.js';
 
 const $ = id => document.getElementById(id);
@@ -223,7 +221,6 @@ function undo() {
 // ------------------------------------------------------------
 // Mechanic recognition
 // ------------------------------------------------------------
-
 function findMechanic(text) {
   const s = String(text)
     .toLowerCase()
@@ -231,9 +228,73 @@ function findMechanic(text) {
     .replace(/\s+/g, ' ')
     .trim();
 
-  for (const item of CHAT_PATTERNS) {
-    for (const p of item.patterns) {
-      if (s.includes(p)) {
+  /*
+   * Ignore the tiny garbage strings we're currently getting
+   * from OCR.
+   */
+  if (s.length < 12) {
+    return null;
+  }
+
+  /*
+   * Only use distinctive Telos phrases.
+   *
+   * Do NOT use things like just "hold still" or "give me strength"
+   * because OCR can easily produce those accidentally.
+   */
+  const patterns = [
+    {
+      mechanic: 'tendrils',
+      patterns: [
+        'anima will return to the source',
+        'return to the source'
+      ]
+    },
+
+    {
+      mechanic: 'uppercut',
+      patterns: [
+        'gielinor, give me strength',
+        'gielinor give me strength'
+      ]
+    },
+
+    {
+      mechanic: 'holdstill',
+      patterns: [
+        'hold still, invader',
+        'hold still invader'
+      ]
+    },
+
+    {
+      mechanic: 'onslaught',
+      patterns: [
+        'anima is mine',
+        'anima belongs to me'
+      ]
+    },
+
+    {
+      mechanic: 'virus',
+      patterns: [
+        'virus',
+        'corrupted anima'
+      ]
+    },
+
+    {
+      mechanic: 'nospec',
+      patterns: [
+        'no special attack',
+        'no spec'
+      ]
+    }
+  ];
+
+  for (const item of patterns) {
+    for (const pattern of item.patterns) {
+      if (s.includes(pattern)) {
         return item.mechanic;
       }
     }
@@ -242,6 +303,9 @@ function findMechanic(text) {
   return null;
 }
 
+// ------------------------------------------------------------
+// Alt1 Chat OCR
+// ------------------------------------------------------------
 
 // ------------------------------------------------------------
 // Alt1 Chat OCR
@@ -249,54 +313,78 @@ function findMechanic(text) {
 
 let bindId = null;
 let chatTimer = null;
-let chatScanCount = 0;
 
+let lastRecognisedMechanic = null;
+let lastRecognisedAt = 0;
 
-let bindId = null;
-let chatTimer = null;
-let chatScanCount = 0;
 
 function startChatOCR() {
   log('Start Chat OCR clicked', 'DEBUG');
 
   try {
+
     if (!window.alt1) {
-      log('Alt1 API is not available.', 'ERROR');
+      log(
+        'Alt1 API is not available.',
+        'ERROR'
+      );
       return;
     }
 
-    log('Alt1 API found.', 'DEBUG');
 
     if (!alt.rsLinked) {
-      log('RuneScape is not linked to Alt1.', 'ERROR');
+      log(
+        'RuneScape is not linked to Alt1.',
+        'ERROR'
+      );
       return;
     }
 
-    log(`RuneScape size: ${alt.rsWidth}x${alt.rsHeight}`, 'DEBUG');
-    log(`Pixel permission: ${alt.permissionPixel}`, 'DEBUG');
+
+    log(
+      `RuneScape size: ${alt.rsWidth}x${alt.rsHeight}`,
+      'DEBUG'
+    );
+
+
+    log(
+      `Pixel permission: ${alt.permissionPixel}`,
+      'DEBUG'
+    );
+
 
     if (!alt.permissionPixel) {
-      log('Pixel permission is not enabled for this app.', 'ERROR');
+      log(
+        'Pixel permission is not enabled.',
+        'ERROR'
+      );
       return;
     }
 
-    // Stop an existing OCR loop first.
+
+    // Stop any existing OCR timer.
     if (chatTimer) {
       clearTimeout(chatTimer);
       chatTimer = null;
     }
 
-    bindId = null;
-    chatScanCount = 0;
-    state.lastChat = '';
 
-    /*
-     * Bind the RuneScape screen.
-     *
-     * Keep this operation isolated because bindRegion() can throw
-     * if Alt1 refuses the region.
-     */
+    // Reset recognition state.
+    bindId = null;
+
+    lastRecognisedMechanic = null;
+    lastRecognisedAt = 0;
+
+    state.lastChat = '';
+    state.lastChatProcessed = '';
+
+
+    // --------------------------------------------------------
+    // Bind the RuneScape screen
+    // --------------------------------------------------------
+
     try {
+
       bindId = alt.bindRegion(
         0,
         0,
@@ -304,207 +392,342 @@ function startChatOCR() {
         alt.rsHeight
       );
 
-      log(`Chat OCR region bound: ${bindId}`, 'DEBUG');
+      log(
+        `RuneScape screen bound successfully: ${bindId}`,
+        'DEBUG'
+      );
+
     } catch (e) {
-      log(`bindRegion failed: ${e?.message || e}`, 'ERROR');
-      console.error('bindRegion error:', e);
+
+      log(
+        `bindRegion failed: ${e?.message || e}`,
+        'ERROR'
+      );
+
+      console.error(
+        'bindRegion error:',
+        e
+      );
+
       bindId = null;
+
       return;
     }
 
-    if (bindId === null || bindId === undefined) {
-      log('Alt1 returned an invalid bind ID.', 'ERROR');
+
+    if (
+      bindId === null ||
+      bindId === undefined
+    ) {
+      log(
+        'Invalid Alt1 bind ID returned.',
+        'ERROR'
+      );
+
       return;
     }
+
+
+    // --------------------------------------------------------
+    // Start OCR
+    // --------------------------------------------------------
 
     state.chat = true;
-    $('chatBtn').textContent = 'Stop chat OCR';
+
+    $('chatBtn').textContent =
+      'Stop chat OCR';
 
     render();
 
-    log('Chat OCR started.', 'OCR');
 
-    // IMPORTANT: actually start the polling loop.
+    log(
+      'Chat OCR started — monitoring RuneScape chat.',
+      'OCR'
+    );
+
+
+    // Start polling immediately.
     pollChat();
 
+
   } catch (e) {
-    log(`OCR startup crashed: ${e?.message || e}`, 'ERROR');
-    console.error('Chat OCR startup error:', e);
+
+    log(
+      `OCR startup error: ${e?.message || e}`,
+      'ERROR'
+    );
+
+    console.error(
+      'OCR startup error:',
+      e
+    );
+
 
     state.chat = false;
     bindId = null;
+
 
     if (chatTimer) {
       clearTimeout(chatTimer);
       chatTimer = null;
     }
 
-    $('chatBtn').textContent = 'Start chat OCR';
+
+    $('chatBtn').textContent =
+      'Start chat OCR';
+
     render();
   }
 }
 
 
 function stopChatOCR() {
+
   state.chat = false;
+
 
   if (chatTimer) {
     clearTimeout(chatTimer);
     chatTimer = null;
   }
 
+
   bindId = null;
 
-  $('chatBtn').textContent = 'Start chat OCR';
 
-  log('Chat OCR stopped.', 'OCR');
+  lastRecognisedMechanic = null;
+  lastRecognisedAt = 0;
+
+
+  $('chatBtn').textContent =
+    'Start chat OCR';
+
+
+  log(
+    'Chat OCR stopped.',
+    'OCR'
+  );
+
 
   render();
 }
 
 
 function pollChat() {
+
   if (!state.chat) {
     return;
   }
 
-  if (!alt || bindId === null) {
-    log('OCR stopped: Alt1 binding is unavailable.', 'ERROR');
+
+  if (
+    !alt ||
+    bindId === null
+  ) {
+
     stopChatOCR();
+
     return;
   }
 
+
   try {
-    const w = alt.rsWidth || 800;
-    const h = alt.rsHeight || 600;
 
-    /*
-     * RuneScape chat is normally in the bottom-left.
-     *
-     * Start with a fairly large area so we can establish that OCR
-     * is actually working before tightening the scan.
-     */
-    const minX = 0;
-    const maxX = Math.floor(w * 0.75);
+    const w =
+      alt.rsWidth || 1653;
 
-    const minY = Math.floor(h * 0.70);
-    const maxY = Math.floor(h * 0.98);
+    const h =
+      alt.rsHeight || 917;
 
-    let foundText = null;
 
-    chatScanCount++;
+    // --------------------------------------------------------
+    // RuneScape chat region
+    //
+    // Based on your screenshot:
+    //
+    // X: approximately 0 - 545
+    // Y: approximately 700 - 895
+    //
+    // These are proportional so they can adapt to resizing.
+    // --------------------------------------------------------
 
-    /*
-     * Don't hammer bindReadString too aggressively.
-     *
-     * The important part here is proving that OCR calls work.
-     */
-    for (let y = minY; y < maxY && !foundText; y += 8) {
+    const chatX = 0;
 
-      for (let x = minX; x < maxX && !foundText; x += 24) {
+    const chatY =
+      Math.floor(h * 0.76);
 
-        try {
-          const text = alt.bindReadString(
+    const chatH =
+      Math.floor(h * 0.21);
+
+
+    let recognised = null;
+
+
+    // --------------------------------------------------------
+    // Scan possible chat-line positions.
+    // --------------------------------------------------------
+
+    for (
+      let y = chatY;
+      y < chatY + chatH;
+      y += 3
+    ) {
+
+      try {
+
+        const text =
+          alt.bindReadString(
             bindId,
             'chat',
-            x,
+            chatX + 5,
             y
           );
 
-          if (!text) {
-            continue;
-          }
 
-          const cleaned = String(text)
+        if (!text) {
+          continue;
+        }
+
+
+        const cleaned =
+          String(text)
             .replace(/\s+/g, ' ')
             .trim();
 
-          if (!cleaned) {
-            continue;
-          }
 
-          /*
-           * Only log new OCR text.
-           */
-          if (cleaned !== state.lastChat) {
-            state.lastChat = cleaned;
-
-            log(`OCR read: "${cleaned}"`, 'OCR');
-
-            const mech = findMechanic(cleaned);
-
-            if (mech) {
-              foundText = {
-                text: cleaned,
-                mech: mech
-              };
-            }
-          }
-
-        } catch (e) {
-          /*
-           * One bad OCR coordinate must NOT kill the entire scanner.
-           */
-          console.warn(
-            'bindReadString failed:',
-            x,
-            y,
-            e
-          );
+        // Ignore tiny OCR garbage.
+        if (cleaned.length < 12) {
+          continue;
         }
+
+
+        // Check for an actual Telos mechanic.
+        const mechanicId =
+          findMechanic(cleaned);
+
+
+        if (!mechanicId) {
+          continue;
+        }
+
+
+        recognised = {
+          text: cleaned,
+          mechanic: mechanicId
+        };
+
+
+        break;
+
+      } catch (e) {
+
+        // Ignore failed OCR coordinates.
+        console.debug(
+          'OCR coordinate failed:',
+          e
+        );
       }
     }
 
-    /*
-     * We only call mechanic() if a recognised Telos phrase
-     * was actually found.
-     */
-    if (foundText) {
-      log(
-        `Telos mechanic recognised: ${foundText.text}`,
-        'CHAT'
-      );
 
-      mechanic(
-        foundText.mech,
-        'chat OCR'
-      );
+    // --------------------------------------------------------
+    // Nothing recognised.
+    // --------------------------------------------------------
+
+    if (!recognised) {
+
+      scheduleChatPoll();
+
+      return;
     }
 
-    /*
-     * Keep polling.
-     */
-    if (state.chat) {
-      const interval = Math.max(
-        500,
-        alt.captureInterval || 500
-      );
 
-      chatTimer = setTimeout(
-        pollChat,
-        interval
-      );
+    const timestamp =
+      Date.now();
+
+
+    // --------------------------------------------------------
+    // Prevent the same chat message from firing repeatedly.
+    // --------------------------------------------------------
+
+    const duplicate =
+      recognised.mechanic ===
+        lastRecognisedMechanic &&
+      timestamp - lastRecognisedAt < 5000;
+
+
+    if (duplicate) {
+
+      scheduleChatPoll();
+
+      return;
     }
+
+
+    // --------------------------------------------------------
+    // New mechanic recognised.
+    // --------------------------------------------------------
+
+    lastRecognisedMechanic =
+      recognised.mechanic;
+
+    lastRecognisedAt =
+      timestamp;
+
+
+    log(
+      `Telos mechanic recognised: "${recognised.text}"`,
+      'CHAT'
+    );
+
+
+    mechanic(
+      recognised.mechanic,
+      'chat OCR'
+    );
+
+
+    scheduleChatPoll();
+
 
   } catch (e) {
-    /*
-     * This is the important safety net.
-     *
-     * Nothing inside the OCR loop should be able to take
-     * the entire app down.
-     */
+
     log(
       `OCR polling error: ${e?.message || e}`,
       'ERROR'
     );
 
+
     console.error(
-      'Chat OCR polling error:',
+      'OCR polling error:',
       e
     );
 
+
     stopChatOCR();
   }
+}
+
+
+function scheduleChatPoll() {
+
+  if (!state.chat) {
+    return;
+  }
+
+
+  const interval =
+    Math.max(
+      500,
+      alt.captureInterval || 500
+    );
+
+
+  chatTimer =
+    setTimeout(
+      pollChat,
+      interval
+    );
 }
 
 
