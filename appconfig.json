@@ -5,10 +5,5 @@
   "appUrl": "index.html",
   "width": 390,
   "height": 620,
-  "permissions": [
-    "pixel",
-    "gamestate",
-    "overlay"
-  ],
   "version": "0.1.0"
 }
