@@ -1,9 +1,14 @@
 {
   "appName": "Telos Rotation Tracker",
   "description": "Telos mechanic rotation and auto-attack tracker for RuneScape 3.",
-  "icon": "icon.png",
-  "appUrl": "index.html",
-  "width": 390,
-  "height": 620,
-  "version": "0.1.0"
+  "appUrl": "./index.html",
+  "configUrl": "./appconfig.json",
+  "iconUrl": "./icon.png",
+  "defaultWidth": 390,
+  "defaultHeight": 620,
+  "minWidth": 330,
+  "minHeight": 420,
+  "maxWidth": 800,
+  "maxHeight": 1200,
+  "permissions": "pixel,overlay"
 }
