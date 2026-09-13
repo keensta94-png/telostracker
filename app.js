@@ -59,12 +59,30 @@ function findMechanic(text){
 // Alt1 chat polling. This intentionally has a conservative fallback: if the chat
 // reader cannot locate the box, the app remains usable with manual mechanic buttons.
 let bindId=null;
-function startChatOCR(){
-  if(!alt || !alt.rsLinked){log('Alt1/RS client not available. Open this page through Alt1 first.','WARN');return;}
-  if(!alt.permissionPixel){log('Enable Pixel / Screen permissions for this app in Alt1.','WARN');return;}
-  state.chat=true; $('chatBtn').textContent='Chat OCR running';
-  try{bindId=alt.bindRegion(0,0,alt.rsWidth,alt.rsHeight);log('Chat OCR started. Keep the game-message chat visible.','OCR');}catch(e){log('Could not bind the RuneScape screen: '+e,'WARN');return;}
-  pollChat();render();
+function startChatOCR() {
+  log('Start Chat OCR clicked', 'DEBUG');
+
+  try {
+    if (!window.alt1) {
+      log('window.alt1 is not available', 'ERROR');
+      return;
+    }
+
+    log('Alt1 object detected', 'DEBUG');
+    log(`rsLinked: ${alt.rsLinked}`, 'DEBUG');
+    log(`rsWidth: ${alt.rsWidth}`, 'DEBUG');
+    log(`rsHeight: ${alt.rsHeight}`, 'DEBUG');
+
+    state.chat = true;
+    $('chatBtn').textContent = 'Chat OCR running';
+
+    log('OCR test started', 'OCR');
+    render();
+
+  } catch (e) {
+    log(`OCR startup error: ${e?.stack || e}`, 'ERROR');
+    console.error(e);
+  }
 }
 function pollChat(){
   if(!state.chat||!alt||!bindId)return;
