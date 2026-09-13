@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Telos Rotation Tracker</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <h1>Telos Rotation Tracker</h1>
+        <p id="status">Browser test mode — Alt1 not detected</p>
+      </div>
+      <div class="header-actions">
+        <button id="resetBtn" class="danger">Reset</button>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div class="phase"><span>Phase</span><strong id="phase">1</strong></div>
+      <div class="current"><span>Current / detected</span><strong id="current">Waiting...</strong><small id="message">Start a pull or select a mechanic below.</small></div>
+      <div class="next"><span>Next mechanic</span><strong id="next">Tendrils / Grip</strong><small id="nextTicks">7 autos to go</small></div>
+    </section>
+
+    <section class="counter-card">
+      <div class="counter-title"><span>Auto attacks</span><b id="autoCount">0</b></div>
+      <div class="progress"><div id="progressBar"></div></div>
+      <div class="counter-sub"><span id="counterText">Waiting for the next mechanic</span><span id="detectorState">Detector: manual</span></div>
+    </section>
+
+    <section class="mechanics">
+      <div class="section-head"><h2>Mechanics</h2><span>Click a mechanic to confirm it manually</span></div>
+      <div id="mechanicGrid" class="grid"></div>
+    </section>
+
+    <section class="tools">
+      <div class="tool-card">
+        <h3>Phase</h3>
+        <div class="row">
+          <button data-phase="1">P1</button><button data-phase="2">P2</button><button data-phase="3">P3</button><button data-phase="4">P4</button><button data-phase="5">P5</button>
+        </div>
+        <p>Use these when testing a phase transition manually.</p>
+      </div>
+      <div class="tool-card">
+        <h3>Auto attack</h3>
+        <div class="row"><button id="autoBtn">+1 auto</button><button id="undoAuto">Undo</button></div>
+        <p>Manual fallback while hit-splat detection is being calibrated.</p>
+      </div>
+      <div class="tool-card">
+        <h3>Detection</h3>
+        <div class="row"><button id="chatBtn">Start chat OCR</button><button id="playerBtn">Set hit area from cursor</button></div>
+        <p id="detectHelp">Chat OCR requires Alt1 pixel permission. Hit detection is experimental and uses screen pixels around your player.</p>
+      </div>
+    </section>
+
+    <section class="log-card">
+      <div class="section-head"><h2>Event log</h2><button id="clearLog">Clear</button></div>
+      <div id="log" class="log"></div>
+    </section>
+
+    <footer>Telos Tracker • local-only • no account or game credentials required</footer>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
